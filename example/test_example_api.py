@@ -43,20 +43,23 @@ class FlaskrTestCase(unittest.TestCase):
             headers = [('Content-Type', 'application/json')]
         )
 
+
         users = json.loads(r.data)['resp']
         assert len(users) == 1
         assert users[0]['name'] == 'ybrs'
 
         self.assertEqual(r.status_code, 200, "/api/users")
 
-        r = self.client.get('/api/user/%s?token=%s' % (users[0]['id'], token),
+        r = self.client.get('/api/users/%s?token=%s' % (users[0]['id'], token),
             headers = [('Content-Type', 'application/json')]
         )
 
+        self.assertEqual(r.status_code, 200, "GET /api/user/:id:")
         user = json.loads(r.data)['resp']
         assert user['name'] == 'ybrs'
 
-        self.assertEqual(r.status_code, 200, "GET /api/user/:id:")
+
+
 
 
 

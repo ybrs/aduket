@@ -4,6 +4,7 @@ from bson import json_util
 from mongomodels import MongoModel
 from functools import wraps
 from bson import ObjectId
+import inflection
 
 class ApiError(Exception):
     def __init__(self, message, status_code=400):
@@ -81,17 +82,17 @@ class Resource(object):
     def get_(self, user, data, id):
         return self.get(id)
 
-    def delete_(self, user, data):
-        return self.delete(data['id'])
+    def delete_(self, user, data, id):
+        return self.delete(id)
 
-    def put_(self, user, data):
-        return self.put(data['id'], data)
+    def put_(self, user, data, id):
+        return self.put(id, data)
 
-    def patch_(self, user, data):
-        return self.patch(data['id'], data)
+    def patch_(self, user, data, id):
+        return self.patch(id, data)
 
-    def post_(self, user, data):
-        return self.post(data['id'], data)
+    def post_(self, user, data, id):
+        return self.post(id, data)
 
 class Api(object):
 
@@ -197,7 +198,7 @@ class Api(object):
         return callback_fn
 
 
-    def expose(self, model, route=None, access_control=None, resource_class=Resource, **kwargs):
+    def expose(self, model, route='/api', access_control=None, resource_class=Resource, **kwargs):
         """
         this adds methods for updating/adding the objects defined by model
 
@@ -211,6 +212,14 @@ class Api(object):
             GET /api/users => returns all users (you can use ?limit=... )
 
         """
+        endpoint_name = route + '/' + inflection.pluralize(inflection.underscore(model.__name__))
+
         resource = Resource(model=model)
-        self._add_api_method('/api/users', resource.list_, methods=['GET'])
-        self._add_api_method('/api/user/<id>', resource.get_, methods=['GET'])
+        self._add_api_method(endpoint_name, resource.list_, methods=['GET'])
+        self._add_api_method('%s/<id>' % endpoint_name, resource.get_, methods=['GET'])
+
+        self._add_api_method(endpoint_name, resource.put_, methods=['PUT'])
+
+        self._add_api_method('%s/<id>' % endpoint_name, resource.delete_, methods=['DELETE'])
+        self._add_api_method('%s/<id>' % endpoint_name, resource.post_, methods=['POST'])
+        self._add_api_method('%s/<id>' % endpoint_name, resource.patch_, methods=['PATCH'])
