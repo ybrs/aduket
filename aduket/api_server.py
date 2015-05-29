@@ -42,9 +42,11 @@ class Serializer(object):
             return ret
         return json_util.default(obj)
 
+
 class Resource(object):
-    def __init__(self, model):
+    def __init__(self, model, access_control):
         self.model = model
+        self.access_control = access_control or self.default_access_control
 
     def list(self, limit=None, offset=None):
         return self.model.query.all()
@@ -76,22 +78,31 @@ class Resource(object):
         o.save()
         return o
 
+    def default_access_control(self, user, *args, **kwargs):
+        assert_api(user, "requires authentication", 403)
+
     def list_(self, user, data):
+        self.access_control(user, data)
         return self.list()
 
     def get_(self, user, data, id):
+        self.access_control(user, data, id)
         return self.get(id)
 
     def delete_(self, user, data, id):
+        self.access_control(user, data, id)
         return self.delete(id)
 
     def put_(self, user, data, id):
+        self.access_control(user, data, id)
         return self.put(id, data)
 
     def patch_(self, user, data, id):
+        self.access_control(user, data, id)
         return self.patch(id, data)
 
     def post_(self, user, data, id):
+        self.access_control(user, data, id)
         return self.post(id, data)
 
 class Api(object):
@@ -214,7 +225,7 @@ class Api(object):
         """
         endpoint_name = route + '/' + inflection.pluralize(inflection.underscore(model.__name__))
 
-        resource = Resource(model=model)
+        resource = Resource(model=model, access_control=access_control)
         self._add_api_method(endpoint_name, resource.list_, methods=['GET'])
         self._add_api_method('%s/<id>' % endpoint_name, resource.get_, methods=['GET'])
 

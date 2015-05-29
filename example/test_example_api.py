@@ -58,9 +58,11 @@ class FlaskrTestCase(unittest.TestCase):
         user = json.loads(r.data)['resp']
         assert user['name'] == 'ybrs'
 
+        r = self.client.get('/api/users/%s?token=%s' % (users[0]['id'], '111'),
+            headers = [('Content-Type', 'application/json')]
+        )
 
-
-
+        self.assertEqual(r.status_code, 401)
 
 
     def tearDown(self):
