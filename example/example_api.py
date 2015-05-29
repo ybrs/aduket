@@ -83,7 +83,13 @@ def login(data):
     assert_api(user, 'user not found')
     return user
 
-
+# this adds these methods
+# GET /users - returns users list
+# GET /users/<id> - returns user
+# POST /users/<id> - create a user
+# PUT /users/<id> - update a user
+# DELETE /users/<id> - delete a user
+# PATCH /users/<id> - update a user (now it does the same thing as put)
 api.expose(User)
 
 if __name__ == '__main__':
