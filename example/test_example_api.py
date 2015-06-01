@@ -62,7 +62,24 @@ class FlaskrTestCase(unittest.TestCase):
             headers = [('Content-Type', 'application/json')]
         )
 
-        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.status_code, 403, 'expecting 403 for wrong token')
+
+        r = self.client.post('/api/todos?token=%s' % token,
+            headers = [('Content-Type', 'application/json')],
+            data=json.dumps({
+                'title': 'my first todo',
+                'description': 'my first todo',
+                'user_id': users[0]['id'],
+            })
+        )
+
+        self.assertEqual(r.status_code, 200, 'create a todo needs 200 - %s' % r.status_code)
+
+        r = self.client.get('/api/todos?token=%s' % token,
+            headers = [('Content-Type', 'application/json')]
+        )
+
+        self.assertEqual(r.status_code, 200)
 
 
     def tearDown(self):

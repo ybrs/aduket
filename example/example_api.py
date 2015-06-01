@@ -16,7 +16,7 @@ from aduket.api_server import Api, ApiError, assert_api, Serializer
 from pymongo import MongoClient
 client = MongoClient()
 
-from mongomodels import connections, MongoModel
+from mongomodels import connections, MongoModel, belongs_to
 
 connections.add(client.timetracker)
 
@@ -39,12 +39,19 @@ class User(MongoModel):
         h.update("Nobody inspects the spammish repetition %s" % password)
         return h.hexdigest()
 
+class Todo(MongoModel):
+    belongs_to(User)
+    title = Column(String)
+    description = Column(String)
+
 
 app = Flask(__name__)
 cors = CORS(app, allow_headers='Content-Type')
 
 serializer = Serializer(column_mapping=api_column_mapping)
-api = Api(app, user_class=User, serializer=serializer.serialize)
+api = Api(app,
+          user_class=User,
+          serializer=serializer.serialize)
 
 
 @api.route(
@@ -83,14 +90,28 @@ def login(data):
     assert_api(user, 'user not found')
     return user
 
+from aduket.api_server import Resource
+
 # this adds these methods
 # GET /users - returns users list
+# POST /users - create a user
+
 # GET /users/<id> - returns user
-# POST /users/<id> - create a user
 # PUT /users/<id> - update a user
 # DELETE /users/<id> - delete a user
 # PATCH /users/<id> - update a user (now it does the same thing as put)
 api.expose(User)
+
+def is_owner(user, data):
+    if data:
+        assert_api(str(user._id) == data['user_id'], "wrong user", 403)
+
+class TodoResource(Resource):
+
+    def list(self, limit=None, offset=None):
+        return Todo.query.filter_by(user_id=api.current_user.id).all()
+
+api.expose(Todo, access_control=is_owner)
 
 if __name__ == '__main__':
 

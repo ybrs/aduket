@@ -60,7 +60,9 @@ class Resource(object):
         return o
 
     def put(self, id, data):
-        o = self.model(**data)
+        o = self.model.get_by_id(id).first()
+        for k, v in data.iteritems():
+            setattr(o, k, v)
         o.save()
         return o
 
@@ -71,12 +73,11 @@ class Resource(object):
         o.save()
         return o
 
-    def post(self, id, data):
-        o = self.model.get_by_id(id).first()
-        for k, v in data.iteritems():
-            setattr(o, k, v)
+    def post(self, data):
+        o = self.model(**data)
         o.save()
         return o
+
 
     def default_access_control(self, user, *args, **kwargs):
         assert_api(user, "requires authentication", 403)
@@ -101,9 +102,9 @@ class Resource(object):
         self.access_control(user, data, id)
         return self.patch(id, data)
 
-    def post_(self, user, data, id):
-        self.access_control(user, data, id)
-        return self.post(id, data)
+    def post_(self, user, data):
+        self.access_control(user, data)
+        return self.post(data)
 
 class Api(object):
 
@@ -112,6 +113,7 @@ class Api(object):
         self.serializer = serializer
         self.user_class = user_class
         self.api_methods = {}
+        self.current_user = None
 
     def gen_doc(self):
         for i, k in self.api_methods.iteritems():
@@ -138,6 +140,7 @@ class Api(object):
                 user = self.user_class.query.filter_by(token=token).first()
                 if not user:
                     return make_response(json.dumps({'err': 'api token is wrong'}), 403)
+                self.current_user = user
 
             args = list(args)
             if request.method in ['POST', 'PUT']:
@@ -177,6 +180,7 @@ class Api(object):
         return decorated
 
     def route(self, rule, *args, **kwargs):
+
         def decorator(fn):
             requires = kwargs.pop('requires', None)
             public = kwargs.pop('public', False)
@@ -223,14 +227,22 @@ class Api(object):
             GET /api/users => returns all users (you can use ?limit=... )
 
         """
-        endpoint_name = route + '/' + inflection.pluralize(inflection.underscore(model.__name__))
-
+        endpoint_path = route + '/' + inflection.pluralize(inflection.underscore(model.__name__))
+        endpoint = endpoint_path
         resource = Resource(model=model, access_control=access_control)
-        self._add_api_method(endpoint_name, resource.list_, methods=['GET'])
-        self._add_api_method('%s/<id>' % endpoint_name, resource.get_, methods=['GET'])
+        self._add_api_method(endpoint_path, resource.list_,
+                             methods=['GET'], endpoint=endpoint + '/list')
+        self._add_api_method('%s/<id>' % endpoint_path, resource.get_,
+                             methods=['GET'], endpoint=endpoint + '/get')
 
-        self._add_api_method(endpoint_name, resource.put_, methods=['PUT'])
+        self._add_api_method(endpoint_path, resource.put_,
+                             methods=['PUT'], endpoint=endpoint + '/put')
 
-        self._add_api_method('%s/<id>' % endpoint_name, resource.delete_, methods=['DELETE'])
-        self._add_api_method('%s/<id>' % endpoint_name, resource.post_, methods=['POST'])
-        self._add_api_method('%s/<id>' % endpoint_name, resource.patch_, methods=['PATCH'])
+        self._add_api_method('%s/<id>' % endpoint_path, resource.delete_,
+                             methods=['DELETE'], endpoint=endpoint + '/delete')
+
+        self._add_api_method(endpoint_path, resource.post_,
+                                                methods=['POST'], endpoint=endpoint + 'post')
+
+        self._add_api_method('%s/<id>' % endpoint_path, resource.patch_,
+                                                methods=['PATCH'], endpoint=endpoint + 'patch')
